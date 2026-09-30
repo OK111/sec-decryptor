@@ -6,7 +6,6 @@ passwords **never leave your browser** — it works offline.
 
 > Unofficial. Not affiliated with NeatBytes / Solid Explorer.
 
-![screenshot](docs/screenshot.png)
 
 ## Live demo
 
