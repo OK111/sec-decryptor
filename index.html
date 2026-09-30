@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solid Explorer .sec Decryptor</title>
+<meta name="description" content="Decrypt Solid Explorer .sec files entirely in your browser. Files never leave your device.">
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#ffffff; --ink:#1a1d21; --muted:#5c6570;
+    --line:#e3e6ea; --accent:#3b6ef5; --accent-ink:#ffffff;
+    --ok:#1a7f4b; --ok-bg:#e6f4ec; --err:#c0392b; --err-bg:#fbeae8;
+    --drop:#f0f3fb; --shadow:0 1px 3px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.06);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f1216; --panel:#171b21; --ink:#e8eaed; --muted:#9aa4b0;
+      --line:#272d35; --accent:#5b86ff; --accent-ink:#0b0e12;
+      --ok:#5cd39a; --ok-bg:#123122; --err:#ff8a7a; --err-bg:#331714;
+      --drop:#141b2b; --shadow:0 1px 3px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f1216; --panel:#171b21; --ink:#e8eaed; --muted:#9aa4b0;
+    --line:#272d35; --accent:#5b86ff; --accent-ink:#0b0e12;
+    --ok:#5cd39a; --ok-bg:#123122; --err:#ff8a7a; --err-bg:#331714;
+    --drop:#141b2b; --shadow:0 1px 3px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; padding:24px 16px; min-height:100vh;
+  }
+  .wrap{max-width:640px; margin:0 auto}
+  header{text-align:center; margin:8px 0 22px}
+  h1{font-size:1.5rem; margin:0 0 6px; letter-spacing:-.01em}
+  .sub{color:var(--muted); margin:0}
+  .badge{
+    display:inline-flex; align-items:center; gap:7px; margin-top:14px;
+    background:var(--ok-bg); color:var(--ok); border:1px solid color-mix(in srgb,var(--ok) 30%,transparent);
+    padding:6px 12px; border-radius:999px; font-size:.82rem; font-weight:600;
+  }
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:20px;
+  }
+  .drop{
+    border:2px dashed var(--line); border-radius:12px; background:var(--drop);
+    padding:30px 18px; text-align:center; cursor:pointer; transition:border-color .15s,background .15s;
+  }
+  .drop:hover,.drop.hot{border-color:var(--accent); background:color-mix(in srgb,var(--accent) 8%,var(--drop))}
+  .drop svg{width:34px; height:34px; color:var(--accent); margin-bottom:8px}
+  .drop p{margin:4px 0 0; color:var(--muted); font-size:.92rem}
+  .drop strong{color:var(--ink)}
+  .field{margin-top:16px}
+  label{display:block; font-size:.85rem; font-weight:600; margin-bottom:6px}
+  .pw{position:relative; display:flex}
+  input[type=password],input[type=text]{
+    width:100%; padding:12px 44px 12px 12px; font-size:1rem; color:var(--ink);
+    background:var(--bg); border:1px solid var(--line); border-radius:10px; outline:none;
+  }
+  input:focus{border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+  .toggle{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--muted); cursor:pointer; padding:8px; border-radius:8px; font-size:.8rem;
+  }
+  .toggle:hover{color:var(--ink)}
+  button.go{
+    margin-top:16px; width:100%; padding:13px; font-size:1rem; font-weight:700; cursor:pointer;
+    background:var(--accent); color:var(--accent-ink); border:none; border-radius:10px; transition:filter .15s;
+  }
+  button.go:hover{filter:brightness(1.06)}
+  button.go:disabled{opacity:.55; cursor:not-allowed; filter:none}
+  ul.results{list-style:none; margin:18px 0 0; padding:0; display:flex; flex-direction:column; gap:8px}
+  .row{
+    display:flex; align-items:center; gap:12px; padding:11px 13px;
+    border:1px solid var(--line); border-radius:10px; background:var(--bg);
+  }
+  .row .name{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:.92rem}
+  .row .meta{font-size:.78rem; color:var(--muted)}
+  .pill{font-size:.72rem; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap}
+  .pill.ok{background:var(--ok-bg); color:var(--ok)}
+  .pill.err{background:var(--err-bg); color:var(--err)}
+  .pill.work{background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent)}
+  a.dl{
+    text-decoration:none; font-size:.82rem; font-weight:700; color:var(--accent);
+    border:1px solid color-mix(in srgb,var(--accent) 35%,transparent); padding:6px 12px; border-radius:8px;
+  }
+  a.dl:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  details{margin-top:22px; font-size:.88rem; color:var(--muted)}
+  details summary{cursor:pointer; font-weight:600; color:var(--ink)}
+  details code{background:var(--bg); padding:1px 5px; border-radius:5px; border:1px solid var(--line); font-size:.85em}
+  details ul{padding-left:18px}
+  footer{text-align:center; color:var(--muted); font-size:.8rem; margin:22px 0 8px; line-height:1.6}
+  footer a{color:var(--accent)}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Solid Explorer <code style="font-size:.9em">.sec</code> Decryptor</h1>
+    <p class="sub">Recover files encrypted by Solid Explorer for Android — right in your browser.</p>
+    <div class="badge">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5z"/></svg>
+      100% offline · files never leave your device
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose .sec files">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+      <p><strong>Drop .sec files here</strong> or click to choose</p>
+      <p id="picked">You can select several at once</p>
+      <input id="file" type="file" multiple accept=".sec" class="hidden">
+    </div>
+
+    <div class="field">
+      <label for="pw">Password</label>
+      <div class="pw">
+        <input id="pw" type="password" autocomplete="off" placeholder="Encryption password" spellcheck="false">
+        <button class="toggle" id="toggle" type="button" aria-label="Show password">show</button>
+      </div>
+    </div>
+
+    <button class="go" id="go" disabled>Decrypt</button>
+
+    <ul class="results" id="results"></ul>
+
+    <details>
+      <summary>How it works &amp; is it safe?</summary>
+      <p>Everything runs locally using your browser's built-in Web Crypto. No file or password is ever uploaded — you can even use this page with your network disconnected.</p>
+      <p>Solid Explorer's single-file format is:</p>
+      <ul>
+        <li><code>salt(16) · IV(16) · verifier(4) · ciphertext</code></li>
+        <li>Key = <code>PBKDF2</code> of your password + salt (HMAC-SHA256, 100001 iters; older files: HMAC-SHA1, 1024)</li>
+        <li>Cipher = <code>AES-256-CTR</code></li>
+        <li>The 4-byte verifier lets the page tell a wrong password from a good one.</li>
+      </ul>
+      <p>Decrypted names drop the trailing <code>.sec</code>. This tool handles <em>single-file</em> encryption (encrypted <em>folders</em>, which also scramble filenames, aren't supported yet).</p>
+    </details>
+  </div>
+
+  <footer>
+    Unofficial tool · not affiliated with NeatBytes / Solid Explorer.<br>
+    Runs entirely in your browser. <span id="src"></span>
+  </footer>
+</div>
+
+<script>
+const VERIFIER=new Uint8Array([0x04,0x0a,0xfe,0x37]);
+const HEADER=36;
+const SPECS=[{hash:'SHA-256',iterations:100001,label:'SHA-256 ×100001'},{hash:'SHA-1',iterations:1024,label:'SHA-1 ×1024 (legacy)'}];
+const subtle=window.crypto.subtle;
+let files=[];
+
+const $=id=>document.getElementById(id);
+const drop=$('drop'), fileInput=$('file'), pw=$('pw'), go=$('go'), results=$('results'), picked=$('picked');
+
+function bytesEq(a,b){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;return true;}
+function outName(n){return /\.sec$/i.test(n)?n.replace(/\.sec$/i,''):n+'.dec';}
+function fmtSize(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';return (n/1048576).toFixed(1)+' MB';}
+
+async function deriveKey(passwordBytes,salt,spec){
+  const base=await subtle.importKey('raw',passwordBytes,{name:'PBKDF2'},false,['deriveKey']);
+  return subtle.deriveKey({name:'PBKDF2',salt,iterations:spec.iterations,hash:spec.hash},
+    base,{name:'AES-CTR',length:256},false,['decrypt']);
+}
+async function ctr(key,iv,data){
+  return new Uint8Array(await subtle.decrypt({name:'AES-CTR',counter:iv,length:128},key,data));
+}
+
+async function decryptFile(file,passwordBytes){
+  const buf=new Uint8Array(await file.arrayBuffer());
+  if(buf.length<HEADER) throw {kind:'format'};
+  const salt=buf.slice(0,16), iv=buf.slice(16,32), verCT=buf.slice(32,36), body=buf.slice(36);
+  for(const spec of SPECS){
+    const key=await deriveKey(passwordBytes,salt,spec);
+    const verDec=await ctr(key,iv,verCT);
+    if(!bytesEq(verDec,VERIFIER)) continue;
+    const plain=body.length? await ctr(key,iv,body) : new Uint8Array(0);
+    return {plain,spec};
+  }
+  throw {kind:'password'};
+}
+
+function render(){
+  results.innerHTML='';
+  files.forEach((f,i)=>{
+    const li=document.createElement('li'); li.className='row'; li.dataset.i=i;
+    li.innerHTML=`<span class="name" title="${f.name}">${f.name}</span>
+      <span class="meta">${fmtSize(f.size)}</span>
+      <span class="pill work status">ready</span>`;
+    results.appendChild(li);
+  });
+  go.disabled=!(files.length && pw.value.length);
+}
+
+async function run(){
+  if(!files.length||!pw.value) return;
+  go.disabled=true;
+  const passwordBytes=new TextEncoder().encode(pw.value);
+  for(let i=0;i<files.length;i++){
+    const li=results.querySelector(`li[data-i="${i}"]`);
+    const status=li.querySelector('.status');
+    status.className='pill work status'; status.textContent='decrypting…';
+    await new Promise(r=>setTimeout(r,0));
+    try{
+      const {plain}=await decryptFile(files[i],passwordBytes);
+      const url=URL.createObjectURL(new Blob([plain],{type:'application/octet-stream'}));
+      status.className='pill ok status'; status.textContent='decrypted';
+      const a=document.createElement('a'); a.className='dl'; a.href=url;
+      a.download=outName(files[i].name); a.textContent='Download';
+      li.appendChild(a);
+    }catch(e){
+      status.className='pill err status';
+      status.textContent = e && e.kind==='format' ? 'not a .sec file' : 'wrong password';
+    }
+  }
+  go.disabled=false;
+}
+
+function addFiles(list){ files=Array.from(list); picked.textContent=files.length?`${files.length} file(s) selected`:'You can select several at once'; render(); }
+
+drop.addEventListener('click',()=>fileInput.click());
+drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fileInput.click();}});
+fileInput.addEventListener('change',e=>addFiles(e.target.files));
+;['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+;['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop',e=>{if(e.dataTransfer.files.length)addFiles(e.dataTransfer.files);});
+pw.addEventListener('input',()=>{go.disabled=!(files.length&&pw.value.length);});
+pw.addEventListener('keydown',e=>{if(e.key==='Enter')run();});
+$('toggle').addEventListener('click',()=>{const t=pw.type==='password';pw.type=t?'text':'password';$('toggle').textContent=t?'hide':'show';});
+go.addEventListener('click',run);
+
+// Optional: set your repo link here
+const REPO='';
+if(REPO) $('src').innerHTML=`<a href="${REPO}">View source</a>`;
+</script>
+</body>
+</html>
