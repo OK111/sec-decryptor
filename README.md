@@ -1,11 +1,12 @@
 # Solid Explorer `.sec` Decryptor
 
-A single-page, **100% client-side** tool to decrypt files encrypted by
-[Solid Explorer](https://neatbytes.com/solidexplorer/) for Android. Files and
+A single-page, **100% client-side** tool to decrypt files **and encrypted folders**
+made by [Solid Explorer](https://neatbytes.com/solidexplorer/) for Android. Files and
 passwords **never leave your browser** — it works offline.
 
 > Unofficial. Not affiliated with NeatBytes / Solid Explorer.
 
+Two modes: **single file**, and **encrypted folder → .zip**.
 
 ## Live demo
 
@@ -39,8 +40,15 @@ Solid Explorer's single-file format:
 - Output filename = input with the trailing `.sec` removed.
 - No compression; ciphertext length equals the original file length.
 
-Only **single-file** encryption is supported. Encrypted *folders* (which also
-scramble filenames) are not handled yet.
+### Encrypted folders
+A Solid Explorer encrypted folder is a container holding:
+- a **`.key`** file (36 bytes: `salt · IV · verifier`) that defines one key/IV for the whole container, and
+- files/subfolders whose **names** are `base64url( AES-256-CTR(name) )` and whose
+  **contents** use the same 36-byte-header + AES-CTR format.
+
+Pick the whole encrypted folder (the one with the scrambled filenames) in the
+**Encrypted folder** tab and the page rebuilds the decrypted tree and hands you a `.zip`.
+Empty sub-directories aren't preserved (browsers only expose files); everything else is.
 
 ## Limits
 

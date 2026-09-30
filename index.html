@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Solid Explorer .sec Decryptor</title>
-<meta name="description" content="Decrypt Solid Explorer .sec files entirely in your browser. Files never leave your device.">
+<meta name="description" content="Decrypt Solid Explorer .sec files and encrypted folders entirely in your browser. Files never leave your device.">
 <style>
   :root{
     --bg:#f4f5f7; --panel:#ffffff; --ink:#1a1d21; --muted:#5c6570;
@@ -47,6 +47,9 @@
     background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
     box-shadow:var(--shadow); padding:20px;
   }
+  .tabs{display:flex; gap:6px; background:var(--bg); border:1px solid var(--line); border-radius:11px; padding:4px; margin-bottom:18px}
+  .tab{flex:1; padding:9px; text-align:center; font-size:.9rem; font-weight:600; color:var(--muted); background:none; border:none; border-radius:8px; cursor:pointer}
+  .tab[aria-selected="true"]{background:var(--panel); color:var(--ink); box-shadow:0 1px 2px rgba(0,0,0,.08)}
   .drop{
     border:2px dashed var(--line); border-radius:12px; background:var(--drop);
     padding:30px 18px; text-align:center; cursor:pointer; transition:border-color .15s,background .15s;
@@ -85,11 +88,13 @@
   .pill.ok{background:var(--ok-bg); color:var(--ok)}
   .pill.err{background:var(--err-bg); color:var(--err)}
   .pill.work{background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent)}
-  a.dl{
-    text-decoration:none; font-size:.82rem; font-weight:700; color:var(--accent);
-    border:1px solid color-mix(in srgb,var(--accent) 35%,transparent); padding:6px 12px; border-radius:8px;
+  a.dl,button.dl{
+    text-decoration:none; font-size:.82rem; font-weight:700; color:var(--accent); cursor:pointer;
+    border:1px solid color-mix(in srgb,var(--accent) 35%,transparent); padding:6px 12px; border-radius:8px; background:none;
   }
-  a.dl:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  a.dl:hover,button.dl:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  .tree{margin-top:14px; font-size:.85rem; color:var(--muted); max-height:220px; overflow:auto; border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--bg)}
+  .tree div{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   details{margin-top:22px; font-size:.88rem; color:var(--muted)}
   details summary{cursor:pointer; font-weight:600; color:var(--ink)}
   details code{background:var(--bg); padding:1px 5px; border-radius:5px; border:1px solid var(--line); font-size:.85em}
@@ -103,7 +108,7 @@
 <div class="wrap">
   <header>
     <h1>Solid Explorer <code style="font-size:.9em">.sec</code> Decryptor</h1>
-    <p class="sub">Recover files encrypted by Solid Explorer for Android — right in your browser.</p>
+    <p class="sub">Recover files &amp; folders encrypted by Solid Explorer for Android — in your browser.</p>
     <div class="badge">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5z"/></svg>
       100% offline · files never leave your device
@@ -111,11 +116,17 @@
   </header>
 
   <div class="card">
-    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose .sec files">
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tab-file" role="tab" aria-selected="true">Single file</button>
+      <button class="tab" id="tab-folder" role="tab" aria-selected="false">Encrypted folder</button>
+    </div>
+
+    <div class="drop" id="drop" tabindex="0" role="button">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-      <p><strong>Drop .sec files here</strong> or click to choose</p>
+      <p><strong id="dropTitle">Drop .sec files here</strong> <span id="dropHint">or click to choose</span></p>
       <p id="picked">You can select several at once</p>
-      <input id="file" type="file" multiple accept=".sec" class="hidden">
+      <input id="fileInput" type="file" multiple accept=".sec" class="hidden">
+      <input id="dirInput" type="file" class="hidden" webkitdirectory directory>
     </div>
 
     <div class="field">
@@ -132,15 +143,13 @@
 
     <details>
       <summary>How it works &amp; is it safe?</summary>
-      <p>Everything runs locally using your browser's built-in Web Crypto. No file or password is ever uploaded — you can even use this page with your network disconnected.</p>
-      <p>Solid Explorer's single-file format is:</p>
+      <p>Everything runs locally using your browser's built-in Web Crypto. No file or password is ever uploaded — you can use this page with your network disconnected.</p>
+      <p><strong>Single file</strong> (<code>name.ext.sec</code>): <code>salt(16) · IV(16) · verifier(4) · ciphertext</code>.</p>
+      <p><strong>Encrypted folder</strong>: a container holding a <code>.key</code> file plus files whose <em>names</em> are AES-encrypted and Base64url-encoded. Pick the whole encrypted folder and you'll get a <code>.zip</code> of the decrypted tree.</p>
       <ul>
-        <li><code>salt(16) · IV(16) · verifier(4) · ciphertext</code></li>
-        <li>Key = <code>PBKDF2</code> of your password + salt (HMAC-SHA256, 100001 iters; older files: HMAC-SHA1, 1024)</li>
-        <li>Cipher = <code>AES-256-CTR</code></li>
-        <li>The 4-byte verifier lets the page tell a wrong password from a good one.</li>
+        <li>Key = <code>PBKDF2</code> of your password + salt (HMAC-SHA256 ×100001; older files: HMAC-SHA1 ×1024)</li>
+        <li>Cipher = <code>AES-256-CTR</code>; the 4-byte verifier distinguishes a wrong password from a good one.</li>
       </ul>
-      <p>Decrypted names drop the trailing <code>.sec</code>. This tool handles <em>single-file</em> encryption (encrypted <em>folders</em>, which also scramble filenames, aren't supported yet).</p>
     </details>
   </div>
 
@@ -153,88 +162,176 @@
 <script>
 const VERIFIER=new Uint8Array([0x04,0x0a,0xfe,0x37]);
 const HEADER=36;
-const SPECS=[{hash:'SHA-256',iterations:100001,label:'SHA-256 ×100001'},{hash:'SHA-1',iterations:1024,label:'SHA-1 ×1024 (legacy)'}];
+const SPECS=[{hash:'SHA-256',iterations:100001},{hash:'SHA-1',iterations:1024}];
 const subtle=window.crypto.subtle;
-let files=[];
+let mode='file';         // 'file' | 'folder'
+let fileList=[];         // File[] for single-file mode
+let dirEntries=[];       // {path, file} for folder mode
 
 const $=id=>document.getElementById(id);
-const drop=$('drop'), fileInput=$('file'), pw=$('pw'), go=$('go'), results=$('results'), picked=$('picked');
+const drop=$('drop'), fileInput=$('fileInput'), dirInput=$('dirInput'), pw=$('pw'),
+      go=$('go'), results=$('results'), picked=$('picked'),
+      dropTitle=$('dropTitle'), dropHint=$('dropHint');
 
-function bytesEq(a,b){if(a.length!==b.length)return false;for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;return true;}
-function outName(n){return /\.sec$/i.test(n)?n.replace(/\.sec$/i,''):n+'.dec';}
+const bytesEq=(a,b)=>a.length===b.length&&a.every((x,i)=>x===b[i]);
+const outName=n=>/\.sec$/i.test(n)?n.replace(/\.sec$/i,''):n+'.dec';
 function fmtSize(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';return (n/1048576).toFixed(1)+' MB';}
+function b64urlDecode(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const bin=atob(s);const o=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)o[i]=bin.charCodeAt(i);return o;}
 
-async function deriveKey(passwordBytes,salt,spec){
-  const base=await subtle.importKey('raw',passwordBytes,{name:'PBKDF2'},false,['deriveKey']);
-  return subtle.deriveKey({name:'PBKDF2',salt,iterations:spec.iterations,hash:spec.hash},
-    base,{name:'AES-CTR',length:256},false,['decrypt']);
+async function deriveKey(pwBytes,salt,spec){
+  const base=await subtle.importKey('raw',pwBytes,{name:'PBKDF2'},false,['deriveKey']);
+  return subtle.deriveKey({name:'PBKDF2',salt,iterations:spec.iterations,hash:spec.hash},base,{name:'AES-CTR',length:256},false,['decrypt']);
 }
-async function ctr(key,iv,data){
-  return new Uint8Array(await subtle.decrypt({name:'AES-CTR',counter:iv,length:128},key,data));
+const ctr=async(key,iv,data)=>new Uint8Array(await subtle.decrypt({name:'AES-CTR',counter:iv,length:128},key,data));
+
+// resolve the container key from any header (salt/IV/verifier are container-wide)
+async function resolveKey(pwBytes,salt,iv,verCT){
+  for(const spec of SPECS){const key=await deriveKey(pwBytes,salt,spec);
+    if(bytesEq(await ctr(key,iv,verCT),VERIFIER)) return key;}
+  return null;
 }
 
-async function decryptFile(file,passwordBytes){
+// ---------- single file ----------
+async function decryptOneFile(file,pwBytes){
   const buf=new Uint8Array(await file.arrayBuffer());
   if(buf.length<HEADER) throw {kind:'format'};
-  const salt=buf.slice(0,16), iv=buf.slice(16,32), verCT=buf.slice(32,36), body=buf.slice(36);
-  for(const spec of SPECS){
-    const key=await deriveKey(passwordBytes,salt,spec);
-    const verDec=await ctr(key,iv,verCT);
-    if(!bytesEq(verDec,VERIFIER)) continue;
-    const plain=body.length? await ctr(key,iv,body) : new Uint8Array(0);
-    return {plain,spec};
+  const key=await resolveKey(pwBytes,buf.slice(0,16),buf.slice(16,32),buf.slice(32,36));
+  if(!key) throw {kind:'password'};
+  const iv=buf.slice(16,32), body=buf.slice(36);
+  return body.length? await ctr(key,iv,body) : new Uint8Array(0);
+}
+
+// ---------- folder ----------
+async function decryptFolder(entries,pwBytes){
+  if(!entries.length) throw {kind:'empty'};
+  const first=new Uint8Array(await entries[0].file.arrayBuffer());
+  if(first.length<HEADER) throw {kind:'format'};
+  const salt=first.slice(0,16), iv=first.slice(16,32), ver=first.slice(32,36);
+  const key=await resolveKey(pwBytes,salt,iv,ver);
+  if(!key) throw {kind:'password'};
+  const rootPrefix=entries[0].path.includes('/')?entries[0].path.split('/')[0]:'';
+  const out=[];
+  for(const e of entries){
+    const buf=new Uint8Array(await e.file.arrayBuffer());
+    let segs=e.path.split('/').filter(Boolean);
+    if(rootPrefix&&segs[0]===rootPrefix) segs=segs.slice(1);
+    if(!segs.length) continue;
+    const real=[];
+    for(const s of segs) real.push(new TextDecoder().decode(await ctr(key,iv,b64urlDecode(s))));
+    const realPath=real.join('/');
+    if(realPath==='.key') continue;
+    const body=buf.length>HEADER? await ctr(key,iv,buf.slice(HEADER)) : new Uint8Array(0);
+    out.push({path:realPath,bytes:body});
   }
-  throw {kind:'password'};
+  if(!out.length) throw {kind:'password'}; // nothing decoded -> almost always wrong password
+  return out;
 }
 
-function render(){
-  results.innerHTML='';
-  files.forEach((f,i)=>{
-    const li=document.createElement('li'); li.className='row'; li.dataset.i=i;
-    li.innerHTML=`<span class="name" title="${f.name}">${f.name}</span>
-      <span class="meta">${fmtSize(f.size)}</span>
-      <span class="pill work status">ready</span>`;
-    results.appendChild(li);
-  });
-  go.disabled=!(files.length && pw.value.length);
+// ---------- tiny STORE zip ----------
+const CRCT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRCT[(c^b[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function makeZip(files){
+  const enc=new TextEncoder(),chunks=[],central=[];let offset=0;
+  const u16=n=>[n&255,(n>>8)&255],u32=n=>[n&255,(n>>8)&255,(n>>16)&255,(n>>>24)&255];
+  for(const f of files){
+    const name=enc.encode(f.path),data=f.bytes,crc=crc32(data);
+    const lh=new Uint8Array([...u32(0x04034b50),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0)]);
+    chunks.push(lh,name,data);const localOffset=offset;offset+=lh.length+name.length+data.length;
+    central.push(new Uint8Array([...u32(0x02014b50),...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0),...u32(crc),...u32(data.length),...u32(data.length),...u16(name.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(localOffset)]),name);
+  }
+  let cdSize=0;for(const c of central)cdSize+=c.length;const cdOffset=offset;
+  const end=new Uint8Array([...u32(0x06054b50),0,0,0,0,...u16(files.length),...u16(files.length),...u32(cdSize),...u32(cdOffset),0,0]);
+  const all=[...chunks,...central,end];let total=0;for(const c of all)total+=c.length;
+  const res=new Uint8Array(total);let p=0;for(const c of all){res.set(c,p);p+=c.length;}return res;
+}
+function download(bytes,name,type){
+  const url=URL.createObjectURL(new Blob([bytes],{type:type||'application/octet-stream'}));
+  const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
 }
 
+// ---------- run ----------
 async function run(){
-  if(!files.length||!pw.value) return;
-  go.disabled=true;
-  const passwordBytes=new TextEncoder().encode(pw.value);
-  for(let i=0;i<files.length;i++){
-    const li=results.querySelector(`li[data-i="${i}"]`);
-    const status=li.querySelector('.status');
-    status.className='pill work status'; status.textContent='decrypting…';
-    await new Promise(r=>setTimeout(r,0));
-    try{
-      const {plain}=await decryptFile(files[i],passwordBytes);
-      const url=URL.createObjectURL(new Blob([plain],{type:'application/octet-stream'}));
-      status.className='pill ok status'; status.textContent='decrypted';
-      const a=document.createElement('a'); a.className='dl'; a.href=url;
-      a.download=outName(files[i].name); a.textContent='Download';
-      li.appendChild(a);
-    }catch(e){
-      status.className='pill err status';
-      status.textContent = e && e.kind==='format' ? 'not a .sec file' : 'wrong password';
+  if(!pw.value) return;
+  go.disabled=true; results.innerHTML='';
+  const pwBytes=new TextEncoder().encode(pw.value);
+  try{
+    if(mode==='file'){
+      for(let i=0;i<fileList.length;i++){
+        const f=fileList[i], li=document.createElement('li'); li.className='row';
+        li.innerHTML=`<span class="name" title="${f.name}">${f.name}</span><span class="meta">${fmtSize(f.size)}</span><span class="pill work status">…</span>`;
+        results.appendChild(li);
+        const st=li.querySelector('.status');
+        try{
+          const plain=await decryptOneFile(f,pwBytes);
+          st.className='pill ok status'; st.textContent='decrypted';
+          const a=document.createElement('a'); a.className='dl'; a.textContent='Download';
+          a.href=URL.createObjectURL(new Blob([plain])); a.download=outName(f.name); li.appendChild(a);
+        }catch(e){ st.className='pill err status'; st.textContent=e&&e.kind==='format'?'not a .sec file':'wrong password'; }
+      }
+    }else{
+      const li=document.createElement('li'); li.className='row';
+      li.innerHTML=`<span class="name">${dirEntries.length} encrypted item(s)</span><span class="pill work status">decrypting…</span>`;
+      results.appendChild(li);
+      const st=li.querySelector('.status');
+      try{
+        const files=await decryptFolder(dirEntries,pwBytes);
+        const zip=makeZip(files);
+        st.className='pill ok status'; st.textContent=`${files.length} file(s)`;
+        const btn=document.createElement('button'); btn.className='dl'; btn.textContent='Download .zip';
+        btn.onclick=()=>download(zip,'decrypted.zip','application/zip'); li.appendChild(btn);
+        const tree=document.createElement('div'); tree.className='tree';
+        tree.innerHTML=files.map(f=>`<div>📄 ${f.path} <span style="opacity:.6">(${fmtSize(f.bytes.length)})</span></div>`).join('');
+        results.appendChild(tree);
+      }catch(e){ st.className='pill err status'; st.textContent=e&&e.kind==='format'?'not an encrypted folder':e&&e.kind==='empty'?'no files found':'wrong password'; }
     }
-  }
-  go.disabled=false;
+  }finally{ updateGo(); }
 }
 
-function addFiles(list){ files=Array.from(list); picked.textContent=files.length?`${files.length} file(s) selected`:'You can select several at once'; render(); }
+// ---------- input wiring ----------
+function updateGo(){ go.disabled=!((mode==='file'?fileList.length:dirEntries.length)&&pw.value.length); }
+function setFiles(list){ fileList=Array.from(list); picked.textContent=fileList.length?`${fileList.length} file(s) selected`:'You can select several at once'; results.innerHTML=''; updateGo(); }
+function setDir(list){
+  dirEntries=Array.from(list).map(f=>({path:f.webkitRelativePath||f.name,file:f}));
+  picked.textContent=dirEntries.length?`${dirEntries.length} item(s) in folder`:'Choose the encrypted folder';
+  results.innerHTML=''; updateGo();
+}
+// drag-drop folder traversal (entries API)
+async function readEntry(entry,prefix,out){
+  if(entry.isFile){ await new Promise(r=>entry.file(f=>{out.push({path:prefix+entry.name,file:f});r();},()=>r())); }
+  else if(entry.isDirectory){ const rd=entry.createReader(); let batch;
+    do{ batch=await new Promise(r=>rd.readEntries(r,()=>r([]))); for(const e of batch) await readEntry(e,prefix+entry.name+'/',out); }while(batch.length); }
+}
 
-drop.addEventListener('click',()=>fileInput.click());
-drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fileInput.click();}});
-fileInput.addEventListener('change',e=>addFiles(e.target.files));
+function switchMode(m){
+  mode=m;
+  $('tab-file').setAttribute('aria-selected',m==='file');
+  $('tab-folder').setAttribute('aria-selected',m==='folder');
+  dropTitle.textContent=m==='file'?'Drop .sec files here':'Drop the encrypted folder here';
+  picked.textContent=m==='file'?'You can select several at once':'Choose the encrypted folder (the one with the scrambled names)';
+  results.innerHTML=''; fileList=[]; dirEntries=[]; updateGo();
+}
+
+$('tab-file').onclick=()=>switchMode('file');
+$('tab-folder').onclick=()=>switchMode('folder');
+drop.onclick=()=>(mode==='file'?fileInput:dirInput).click();
+drop.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();drop.click();}};
+fileInput.onchange=e=>setFiles(e.target.files);
+dirInput.onchange=e=>setDir(e.target.files);
 ;['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
 ;['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
-drop.addEventListener('drop',e=>{if(e.dataTransfer.files.length)addFiles(e.dataTransfer.files);});
-pw.addEventListener('input',()=>{go.disabled=!(files.length&&pw.value.length);});
-pw.addEventListener('keydown',e=>{if(e.key==='Enter')run();});
-$('toggle').addEventListener('click',()=>{const t=pw.type==='password';pw.type=t?'text':'password';$('toggle').textContent=t?'hide':'show';});
-go.addEventListener('click',run);
+drop.addEventListener('drop',async e=>{
+  if(mode==='file'){ if(e.dataTransfer.files.length) setFiles(e.dataTransfer.files); return; }
+  const items=e.dataTransfer.items; const out=[];
+  if(items&&items.length&&items[0].webkitGetAsEntry){
+    const entries=Array.from(items).map(i=>i.webkitGetAsEntry()).filter(Boolean);
+    for(const en of entries) await readEntry(en,'',out);
+    dirEntries=out; picked.textContent=`${out.length} item(s) in folder`; results.innerHTML=''; updateGo();
+  }else if(e.dataTransfer.files.length){ setDir(e.dataTransfer.files); }
+});
+pw.oninput=updateGo;
+pw.onkeydown=e=>{if(e.key==='Enter')run();};
+$('toggle').onclick=()=>{const t=pw.type==='password';pw.type=t?'text':'password';$('toggle').textContent=t?'hide':'show';};
+go.onclick=run;
 
 // Optional: set your repo link here
 const REPO='';
