@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ok111.github.io/sec-decryptor/sitemap.xml

@@ -4,8 +4,52 @@
 <meta charset="utf-8">
 <meta name="google-site-verification" content="pA6zrANj661aIulOqddLT0kMivd4cb5Gne-ITEUiH4c" />
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Solid Explorer .sec Decryptor</title>
-<meta name="description" content="Decrypt Solid Explorer .sec files and encrypted folders entirely in your browser. Files never leave your device.">
+<title>Solid Explorer .sec Decryptor – Open &amp; Decrypt .sec Files Online</title>
+<meta name="description" content="Free tool to decrypt Solid Explorer .sec files and encrypted folders on PC, Mac or any device, without the app. Runs 100% in your browser, so files and passwords never leave your device.">
+<meta name="keywords" content="Solid Explorer decrypt, .sec file, open .sec file, Solid Explorer encrypted folder, decrypt .sec on PC, Solid Explorer encryption, sec file decryptor, AES-256 decrypt">
+<meta name="theme-color" content="#3b6ef5">
+<link rel="canonical" href="https://ok111.github.io/sec-decryptor/">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Solid Explorer .sec Decryptor">
+<meta property="og:title" content="Solid Explorer .sec Decryptor – decrypt .sec files in your browser">
+<meta property="og:description" content="Open files and folders encrypted by Solid Explorer on any computer. 100% offline, nothing is uploaded.">
+<meta property="og:url" content="https://ok111.github.io/sec-decryptor/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Solid Explorer .sec Decryptor">
+<meta name="twitter:description" content="Decrypt Solid Explorer .sec files and encrypted folders in your browser. Nothing is uploaded.">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebApplication",
+      "name": "Solid Explorer .sec Decryptor",
+      "url": "https://ok111.github.io/sec-decryptor/",
+      "description": "Decrypt files and encrypted folders created by Solid Explorer for Android, entirely in the browser.",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Windows, macOS, Linux, Android, iOS, ChromeOS",
+      "browserRequirements": "Requires a modern browser with Web Crypto",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        { "@type": "Question", "name": "How do I open a .sec file from Solid Explorer on a PC?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Drop the .sec file on this page, enter the password you used in Solid Explorer, and click Decrypt. The original file downloads with the .sec extension removed." } },
+        { "@type": "Question", "name": "Can I decrypt a Solid Explorer encrypted folder?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes. Switch to the Encrypted folder tab and pick the whole encrypted folder (the one containing the .key file and scrambled names). You get a .zip with the original names and folder structure." } },
+        { "@type": "Question", "name": "Are my files or password uploaded?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Decryption runs locally with your browser's Web Crypto API. The page works with the network disconnected." } },
+        { "@type": "Question", "name": "I forgot my password. Can this recover it?",
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Solid Explorer uses AES-256 with a PBKDF2-derived key, so the files can't be decrypted without the correct password." } }
+      ]
+    }
+  ]
+}
+</script>
 <style>
   :root{
     --bg:#f4f5f7; --panel:#ffffff; --ink:#1a1d21; --muted:#5c6570;
@@ -103,6 +147,11 @@
   footer{text-align:center; color:var(--muted); font-size:.8rem; margin:22px 0 8px; line-height:1.6}
   footer a{color:var(--accent)}
   .hidden{display:none}
+  .faq{margin-top:16px}
+  .faq h2{font-size:1.1rem; margin:0 0 4px}
+  .faq details{margin-top:0; padding:10px 0; border-top:1px solid var(--line)}
+  .faq details:first-of-type{border-top:0}
+  .faq details p{margin:8px 0 2px}
 </style>
 </head>
 <body>
@@ -153,6 +202,34 @@
       </ul>
     </details>
   </div>
+
+  <section class="card faq">
+    <h2>FAQ</h2>
+    <details>
+      <summary>How do I open a .sec file from Solid Explorer on a PC?</summary>
+      <p>Drop the <code>.sec</code> file above, enter the password you used in Solid Explorer, and click <b>Decrypt</b>. The original file downloads with the <code>.sec</code> extension removed. You don't need Solid Explorer or an Android device.</p>
+    </details>
+    <details>
+      <summary>Can I decrypt a whole encrypted folder?</summary>
+      <p>Yes. Switch to the <b>Encrypted folder</b> tab and pick the encrypted folder itself (the one containing the <code>.key</code> file and scrambled file names). You get a <code>.zip</code> with the original names and subfolders.</p>
+    </details>
+    <details>
+      <summary>Are my files or password uploaded anywhere?</summary>
+      <p>No. Decryption runs locally with your browser's Web Crypto API. You can disconnect from the internet and it still works.</p>
+    </details>
+    <details>
+      <summary>I forgot my password. Can this recover it?</summary>
+      <p>No. Solid Explorer uses AES-256 with a key derived from your password (PBKDF2), so without the correct password the data can't be decrypted.</p>
+    </details>
+    <details>
+      <summary>Does it work on phones, Mac and Linux?</summary>
+      <p>Yes, in any current browser. Encrypted folders need a browser that supports picking folders (desktop Chrome, Edge, Firefox or Safari).</p>
+    </details>
+    <details>
+      <summary>Is there a file size limit?</summary>
+      <p>Files are decrypted in memory, so very large files (several GB) are limited by your device's RAM.</p>
+    </details>
+  </section>
 
   <footer>
     Unofficial tool · not affiliated with NeatBytes / Solid Explorer.<br>
@@ -335,7 +412,7 @@ $('toggle').onclick=()=>{const t=pw.type==='password';pw.type=t?'text':'password
 go.onclick=run;
 
 // Optional: set your repo link here
-const REPO='';
+const REPO='https://github.com/OK111/sec-decryptor';
 if(REPO) $('src').innerHTML=`<a href="${REPO}">View source</a>`;
 </script>
 </body>

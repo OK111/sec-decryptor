@@ -8,9 +8,9 @@ passwords **never leave your browser** — it works offline.
 
 Two modes: **single file**, and **encrypted folder → .zip**.
 
-## Live demo
+## Use it
 
-After deploying to GitHub Pages (below): `https://<your-username>.github.io/<repo>/`
+**https://ok111.github.io/sec-decryptor/**
 
 ## Deploy to GitHub Pages
 
